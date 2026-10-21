@@ -179,6 +179,12 @@ static class ObsProcess
             foreach (AutomationElement window in windows)
             {
                 if (window.Current.Name.Contains("Settings")) continue;
+                // Only the exit confirmation, never another dialog (like OBS's setup wizard prompt).
+                var texts = window.FindAll(TreeScope.Descendants,
+                    new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text));
+                bool asksToExit = texts.Cast<AutomationElement>().Any(t =>
+                    t.Current.Name.Contains("exit", StringComparison.OrdinalIgnoreCase) || t.Current.Name.Contains("avslutt", StringComparison.OrdinalIgnoreCase));
+                if (!asksToExit) continue;
                 var buttons = window.FindAll(TreeScope.Descendants,
                     new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button));
                 foreach (AutomationElement button in buttons)

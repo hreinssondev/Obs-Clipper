@@ -343,47 +343,43 @@ static class ObsSettings
     public static bool HasProfile() => File.Exists(ProfileIni());
 
     // OBS's first start asks to run its auto-configuration wizard; setup does that job.
+    // FirstRun=true tells OBS its first run already happened.
     public static void SkipFirstRunWizard()
     {
         foreach (var file in new[] { "user.ini", "global.ini" })
-            Ini.Set(Path.Combine(Root, file), "General", "FirstRun", "false");
+            Ini.Set(Path.Combine(Root, file), "General", "FirstRun", "true");
     }
 
+    const string ReplaySeconds = "60", ReplayMegabytes = "1024";
+
+    // Called when OBS isn't set up for replays yet: applies the recording setup
+    // OBS Clipper was tuned with. Video (resolution, fps) only changes on a brand-new OBS.
     public static void EnableReplayBuffer(bool fresh, string staging)
     {
         var ini = ProfileIni();
-        // A brand-new OBS on an NVIDIA card gets the recording setup OBS Clipper was tuned with.
-        if (fresh && ApplyNvidiaDefaults(ini, staging)) return;
-        bool advanced = Ini.Get(ini, "Output", "Mode") == "Advanced";
-        string section = advanced ? "AdvOut" : "SimpleOutput";
-        Ini.Set(ini, section, "RecRB", "true");
-        if (Ini.Get(ini, section, "RecRBTime") == null) Ini.Set(ini, section, "RecRBTime", "60");
-        Ini.Set(ini, section, "RecFormat2", "mp4");
-        Ini.Set(ini, section, "RecFormat", "mp4");
-
-        if (!advanced)
+        Directory.CreateDirectory(staging);
+        if (!ApplyNvidiaDefaults(ini, staging))
         {
-            // "Same as stream" quality records with the low streaming bitrate.
-            var quality = Ini.Get(ini, section, "RecQuality");
-            if (quality == null || quality == "Stream")
+            bool advanced = Ini.Get(ini, "Output", "Mode") == "Advanced";
+            string section = advanced ? "AdvOut" : "SimpleOutput";
+            Ini.Set(ini, section, "RecRB", "true");
+            Ini.Set(ini, section, "RecRBTime", ReplaySeconds);
+            Ini.Set(ini, section, "RecRBSize", ReplayMegabytes);
+            Ini.Set(ini, section, "RecFormat2", "mp4");
+            Ini.Set(ini, section, "RecFormat", "mp4");
+            Ini.Set(ini, section, advanced ? "RecFilePath" : "FilePath", staging);
+            if (!advanced)
             {
                 Ini.Set(ini, section, "RecQuality", "Small");
                 Ini.Set(ini, section, "RecEncoder", HardwareEncoder());
             }
         }
-
-        if (fresh)
-        {
-            Directory.CreateDirectory(staging);
-            Ini.Set(ini, section, advanced ? "RecFilePath" : "FilePath", staging);
-            ApplyVideoDefaults(ini);
-        }
+        if (fresh) ApplyVideoDefaults(ini);
         ClearObsSaveHotkey(ini);
     }
 
-    // The setup OBS Clipper was tuned with: Advanced output, NVENC (AV1 where the
-    // card has it) at CQ 25 with low-latency tuning, 60 s / 1 GB replay buffer, MP4,
-    // AAC 160 kbps, 1080p60. False if this PC has no NVIDIA card.
+    // Advanced output, NVENC (AV1 where the card has it) at CQ 25 with low-latency
+    // tuning, 60 s / 1 GB replay buffer, MP4, AAC 160 kbps. False without an NVIDIA card.
     static bool ApplyNvidiaDefaults(string ini, string staging)
     {
         var gpus = GpuNames();
@@ -391,7 +387,6 @@ static class ObsSettings
         // AV1 encoding needs an RTX 40 or 50 series (or Ada / Blackwell workstation) card.
         bool av1 = Regex.IsMatch(gpus, @"RTX\s*[45]0\d0|\bAda\b|Blackwell", RegexOptions.IgnoreCase);
 
-        Directory.CreateDirectory(staging);
         Ini.Set(ini, "Output", "Mode", "Advanced");
         Ini.Set(ini, "AdvOut", "RecType", "Standard");
         Ini.Set(ini, "AdvOut", "RecFilePath", staging);
@@ -401,12 +396,10 @@ static class ObsSettings
         Ini.Set(ini, "AdvOut", "RecAudioEncoder", "ffmpeg_aac");
         Ini.Set(ini, "AdvOut", "Track1Bitrate", "160");
         Ini.Set(ini, "AdvOut", "RecRB", "true");
-        Ini.Set(ini, "AdvOut", "RecRBTime", "60");
-        Ini.Set(ini, "AdvOut", "RecRBSize", "1024");
+        Ini.Set(ini, "AdvOut", "RecRBTime", ReplaySeconds);
+        Ini.Set(ini, "AdvOut", "RecRBSize", ReplayMegabytes);
         File.WriteAllText(Path.Combine(Path.GetDirectoryName(ini)!, "recordEncoder.json"),
             "{\"rate_control\":\"CQVBR\",\"preset\":\"p1\",\"multipass\":\"disabled\",\"lookahead\":false,\"adaptive_quantization\":false,\"target_quality\":25,\"tune\":\"ull\"}");
-        ApplyVideoDefaults(ini);
-        ClearObsSaveHotkey(ini);
         return true;
     }
 
