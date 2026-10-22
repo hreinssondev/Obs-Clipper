@@ -9,8 +9,9 @@ OBS does the recording; OBS Clipper sits in the tray, listens for your hotkeys, 
 - **Hotkeys per clip length** – e.g. one key for the last 15 seconds, another for 30, another for 60. Keyboard keys, combos (Ctrl/Alt/Shift) and mouse side buttons.
 - **No input lag** – hotkeys are read by polling key state, the same way OBS does. Nothing hooks your keyboard.
 - **Clean clips folder** – OBS writes to a staging folder; finished, trimmed clips are moved into the clips folder, named like `12.14.26 - 14꞉20.mp4`.
-- **First-launch setup** – installs ffmpeg and OBS (via winget) if missing, connects to OBS, adds a screen capture source and turns on the replay buffer. A brand-new OBS gets tuned recording settings (NVENC/AV1 where available, 1080p60, 60 s buffer); an OBS you already use keeps its settings.
+- **First-launch setup** – installs ffmpeg and OBS (via winget) if missing, connects to OBS, adds a screen capture source, turns on the replay buffer and makes sure game audio is recorded. A brand-new OBS gets tuned recording settings (NVENC/AV1 where available, 1080p60, 60 s buffer); an OBS you already use keeps its settings.
 - **Tray app** – runs quietly in the tray; "Done" sends both OBS and OBS Clipper there, "Show OBS" brings OBS back.
+- **Get help** – "Copy diagnostics" copies a report (audio sources, output settings, the latest clip's streams, log lines) to send to whoever's helping; "Remote help" opens Windows Quick Assist.
 - **Dark UI**.
 
 ## Install

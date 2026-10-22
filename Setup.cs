@@ -39,7 +39,8 @@ sealed class Setup
     public readonly Step Connect = new("Connect to OBS");
     public readonly Step Capture = new("Add screen capture to OBS");
     public readonly Step Buffer = new("Turn on the replay buffer");
-    public Step[] Steps => new[] { Ffmpeg, Obs, Connect, Capture, Buffer };
+    public readonly Step Audio = new("Check game audio");
+    public Step[] Steps => new[] { Ffmpeg, Obs, Connect, Capture, Buffer, Audio };
 
     // Raised on the UI thread whenever a step changes.
     public event Action? Changed;
@@ -67,7 +68,8 @@ sealed class Setup
             && await Run(Obs, EnsureObsAsync)
             && await Run(Connect, ConnectAsync)
             && await Run(Capture, EnsureCaptureAsync)
-            && await Run(Buffer, EnsureReplayBufferAsync);
+            && await Run(Buffer, EnsureReplayBufferAsync)
+            && await Run(Audio, EnsureAudioAsync);
     }
 
     async Task<bool> Run(Step step, Func<Step, Task<string>> action)
@@ -237,6 +239,15 @@ sealed class Setup
         throw new SetupException("OBS wouldn't start the replay buffer. In OBS, open Settings → Output and check that Replay Buffer is ticked, then try again.");
     }
 
+    // Last, so it checks OBS as the buffer step left it.
+    async Task<string> EnsureAudioAsync(Step step)
+    {
+        var fixes = await ObsAudio.FixAsync(obs, freshObs);
+        if (fixes.Count == 0) return "OBS records your PC's sound";
+        string summary = string.Join(", ", fixes);
+        return "Fixed: " + char.ToUpper(summary[0]) + summary[1..];
+    }
+
     string StagingFolder() => Path.Combine(config.ClipsFolder, "_staging");
 
     // Closes OBS, changes its settings while it's closed, and starts it again.
@@ -325,7 +336,7 @@ static class ObsSettings
 {
     static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "obs-studio");
 
-    static string ProfileIni()
+    public static string ProfileIni()
     {
         string dir = "Untitled";
         foreach (var file in new[] { "user.ini", "global.ini" })
@@ -343,7 +354,8 @@ static class ObsSettings
     public static bool HasProfile() => File.Exists(ProfileIni());
 
     // OBS's first start asks to run its auto-configuration wizard; setup does that job.
-    // FirstRun=true tells OBS its first run already happened.
+    // FirstRun=true tells OBS its first run already happened, which also stops it adding
+    // Desktop Audio and Mic/Aux, so the audio step adds them.
     public static void SkipFirstRunWizard()
     {
         foreach (var file in new[] { "user.ini", "global.ini" })
@@ -462,7 +474,7 @@ static class ObsSettings
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     static extern bool EnumDisplayDevices(string? device, uint index, ref DisplayDevice info, uint flags);
 
-    static string GpuNames()
+    public static string GpuNames()
     {
         var names = new List<string>();
         var device = new DisplayDevice { cb = Marshal.SizeOf<DisplayDevice>() };
@@ -500,6 +512,21 @@ static class Ini
             if (current == section && eq > 0 && line[..eq] == key) return line[(eq + 1)..];
         }
         return null;
+    }
+
+    // A section's key=value lines.
+    public static List<string> Section(string path, string section)
+    {
+        var lines = new List<string>();
+        if (!File.Exists(path)) return lines;
+        string? current = null;
+        foreach (var raw in File.ReadAllLines(path))
+        {
+            var line = raw.Trim();
+            if (line.StartsWith('[') && line.EndsWith(']')) current = line[1..^1];
+            else if (current == section && line.Contains('=')) lines.Add(line);
+        }
+        return lines;
     }
 
     public static void Set(string path, string section, string key, string value)

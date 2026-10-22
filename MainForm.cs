@@ -171,9 +171,19 @@ sealed class MainForm : Form
         {
             if (!ObsProcess.Show()) MessageBox.Show(this, "OBS isn't running.", "OBS Clipper", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
+        showObs.Margin = new Padding(0, 0, 8, 0);
+        var help = new ModernButton { Text = "Get help", Suffix = "▾", AutoSize = true, MinimumSize = new Size(116, 32), Margin = Padding.Empty };
+        var helpMenu = new ContextMenuStrip { Renderer = new DarkMenuRenderer(), Font = Theme.Body };
+        helpMenu.Items.Add("Copy diagnostics", null, async (_, _) => await CopyDiagnosticsAsync());
+        helpMenu.Items.Add("Remote help (Quick Assist)", null, (_, _) =>
+        {
+            if (!RemoteHelp.Open()) MessageBox.Show(this, "Couldn't open Quick Assist. Search for it in the Start menu.", "OBS Clipper", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        });
+        help.Click += (_, _) => helpMenu.Show(help, new Point(0, help.Height + 2));
         obsButtons.Controls.Add(obsButton);
         obsButtons.Controls.Add(bufferButton);
         obsButtons.Controls.Add(showObs);
+        obsButtons.Controls.Add(help);
         var toggles = Card(connectBox, connectHint, startObsBox, keepBufferBox, startupBox, soundBox, obsButtons);
         toggles.Margin = new Padding(0, 20, 0, 0);
         settings.Controls.Add(toggles);
@@ -383,6 +393,22 @@ sealed class MainForm : Form
             saver.Unexpect(binding.Seconds);
             Log.Write("OBS couldn't save the replay (is the replay buffer on?)");
         }
+    }
+
+    async Task CopyDiagnosticsAsync()
+    {
+        Cursor = Cursors.WaitCursor;
+        string report;
+        try
+        {
+            report = await Diagnostics.BuildAsync(config, obs);
+        }
+        finally
+        {
+            Cursor = Cursors.Default;
+        }
+        Clipboard.SetText(report);
+        MessageBox.Show(this, "Diagnostics copied. Paste them in a message to whoever's helping you.", "OBS Clipper", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     async Task OnConnectedAsync()

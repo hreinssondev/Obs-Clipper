@@ -28,7 +28,7 @@ sealed class SetupForm : Form
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(540, 600);
+        ClientSize = new Size(540, 650);
 
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(26, 22, 26, 20) };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
